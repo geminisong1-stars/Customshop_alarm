@@ -1,17 +1,17 @@
 """검색 결과 수집 + 신상품 감지 핵심 로직."""
+from config import SITE_SEARCH_URLS, TITLE_FILTER_WORDS
 from scrapers import SCRAPERS
 
 
-def collect_site_items(site, keywords, title_filter=False):
-    """한 사이트에서 여러 키워드로 검색한 결과를 모아 id 기준 중복 제거."""
+def collect_site_items(site):
+    """한 사이트의 고정 필터 URL을 조회해서 id 기준 중복 제거한 상품 목록을 반환."""
     fn = SCRAPERS[site]
+    url = SITE_SEARCH_URLS[site]
+    words = TITLE_FILTER_WORDS.get(site)
+
     by_id = {}
-    for kw in keywords:
-        for item in fn(kw, title_filter=title_filter):
-            item = dict(item)
-            item["keyword"] = kw
-            # 같은 상품이 여러 키워드에 동시에 매칭되면 먼저 매칭된 키워드를 유지
-            by_id.setdefault(item["id"], item)
+    for item in fn(url, title_words=words):
+        by_id.setdefault(item["id"], item)
     return list(by_id.values())
 
 

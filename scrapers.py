@@ -1,6 +1,8 @@
-"""사이트별 검색/파싱 함수.
+"""사이트별 파싱 함수.
 
-각 함수는 키워드로 검색해서 상품 리스트(dict)를 반환한다.
+각 사이트는 config.py의 SITE_SEARCH_URLS에 이미 카테고리/신품/가격/정렬
+필터가 적용된 고정 URL을 그대로 요청해서 결과를 파싱한다.
+
 반환 dict 형식:
     {
         "site":  "musicforce" | "buzzbee" | "digimart",
@@ -31,17 +33,16 @@ def _get_soup(url):
     return BeautifulSoup(r.text, "html.parser")
 
 
-def _title_match(title, keyword):
-    """제목에 키워드의 모든 단어가 (대소문자 무시) 들어있는지."""
+def _title_match(title, words):
+    """제목에 words의 모든 단어가 (대소문자 무시) 들어있는지."""
     t = title.lower()
-    return all(w.lower() in t for w in keyword.split())
+    return all(w.lower() in t for w in words)
 
 
 # ----------------------------------------------------------------------
-# 1) 뮤직포스 (Cafe24)
+# 1) 뮤직포스 (Cafe24) — Fender Custom Shop 전용 카테고리
 # ----------------------------------------------------------------------
-def search_musicforce(keyword, title_filter=False):
-    url = f"https://www.musicforce.co.kr/product/search.html?keyword={requests.utils.quote(keyword)}"
+def search_musicforce(url, title_words=None):
     soup = _get_soup(url)
     results = []
     for li in soup.select("ul.prdList > li"):
@@ -66,9 +67,9 @@ def search_musicforce(keyword, title_filter=False):
             price = price_el.get_text(" ", strip=True) if price_el else ""
 
         href = a["href"]
-        full_url = href if href.startswith("http") else "https://www.musicforce.co.kr" + href
+        full_url = href if href.startswith("http") else "https://musicforce.co.kr" + href
 
-        if title_filter and title and not _title_match(title, keyword):
+        if title_words and title and not _title_match(title, title_words):
             continue
         results.append({"site": "musicforce", "id": pid, "title": title,
                         "price": price, "url": full_url})
@@ -76,14 +77,12 @@ def search_musicforce(keyword, title_filter=False):
 
 
 # ----------------------------------------------------------------------
-# 2) 버즈비 (고도몰 / NHN Commerce)
+# 2) 버즈비 (고도몰 / NHN Commerce) — 일렉기타 카테고리 + 키워드
 # ----------------------------------------------------------------------
-def search_buzzbee(keyword, title_filter=False):
-    url = f"https://www.buzzbee.co.kr/goods/goods_search.php?keyword={requests.utils.quote(keyword)}"
+def search_buzzbee(url, title_words=None):
     soup = _get_soup(url)
     results = []
     for box in soup.select(".item_cont"):
-        # 고유번호: data-goods-no 가 붙은 버튼에서 추출
         no_el = box.select_one("[data-goods-no]")
         a = box.select_one("a[href*='goods_view.php']")
         gid = None
@@ -95,7 +94,6 @@ def search_buzzbee(keyword, title_filter=False):
         if not gid:
             continue
 
-        # 제목: data-goods-nm > img alt 순으로
         nm_el = box.select_one("[data-goods-nm]")
         if nm_el and nm_el.get("data-goods-nm"):
             title = nm_el["data-goods-nm"].strip()
@@ -103,7 +101,6 @@ def search_buzzbee(keyword, title_filter=False):
             img = box.select_one("img[alt]")
             title = img["alt"].strip() if img else ""
 
-        # 가격: data-goods-price
         price = ""
         pr_el = box.select_one("[data-goods-price]")
         if pr_el and pr_el.get("data-goods-price"):
@@ -112,12 +109,11 @@ def search_buzzbee(keyword, title_filter=False):
             except ValueError:
                 price = pr_el["data-goods-price"]
 
-        # 링크 절대화 (../goods/goods_view.php -> 절대경로)
         href = a["href"] if a else f"/goods/goods_view.php?goodsNo={gid}"
         href = href.replace("../", "/")
         full_url = href if href.startswith("http") else "https://www.buzzbee.co.kr" + href
 
-        if title_filter and title and not _title_match(title, keyword):
+        if title_words and title and not _title_match(title, title_words):
             continue
         results.append({"site": "buzzbee", "id": gid, "title": title,
                         "price": price, "url": full_url})
@@ -125,20 +121,16 @@ def search_buzzbee(keyword, title_filter=False):
 
 
 # ----------------------------------------------------------------------
-# 3) 디지마트 (일본) — 신착순 정렬
+# 3) 디지마트 (일본) — 일렉기타 카테고리 + 신품 + 가격 + 키워드
 # ----------------------------------------------------------------------
-def search_digimart(keyword, title_filter=False, polite_delay=1.5):
+def search_digimart(url, title_words=None, polite_delay=1.5):
     time.sleep(polite_delay)  # 예의 있게
-    url = ("https://www.digimart.net/search?"
-           f"keyword={requests.utils.quote(keyword)}"
-           "&sortKey=INITIAL_PUBLIC_DATE_DESC")  # 新着順
     soup = _get_soup(url)
     results = []
     for block in soup.select(".itemSearchListItem"):
         dsid = block.get("data-instrument-cd")
         a = block.select_one("p.ttl a[href]")
         if not dsid:
-            # fallback: href에서 DS번호
             if a:
                 m = re.search(r"/DS(\d+)/", a["href"])
                 dsid = "DS" + m.group(1) if m else None
@@ -152,7 +144,7 @@ def search_digimart(keyword, title_filter=False, polite_delay=1.5):
         href = a["href"] if a else ""
         full_url = href if href.startswith("http") else "https://www.digimart.net" + href
 
-        if title_filter and title and not _title_match(title, keyword):
+        if title_words and title and not _title_match(title, title_words):
             continue
         results.append({"site": "digimart", "id": dsid, "title": title,
                         "price": price, "url": full_url})

@@ -39,7 +39,6 @@ def format_new_item_message(site_label, item):
     price = f"\n💰 {item['price']}" if item.get("price") else ""
     return (
         f"🆕 <b>[{site_label}] 새 상품 발견</b>\n"
-        f"🔎 키워드: {item.get('keyword', '')}\n"
         f"📦 {item['title']}{price}\n"
         f"🔗 {item['url']}"
     )

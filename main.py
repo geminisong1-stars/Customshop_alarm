@@ -1,5 +1,5 @@
 """검색 -> 신상품 감지 -> 텔레그램 알림 -> 상태(seen.json) 저장."""
-from config import KEYWORDS, TITLE_FILTER, SEEN_FILE
+from config import SEEN_FILE
 from core import collect_site_items, detect_new_items
 from seen_store import load_seen, save_seen
 from notifier import send_telegram, format_new_item_message
@@ -19,7 +19,7 @@ def main():
     for site in SITES:
         label = SITE_LABELS[site]
         try:
-            items = collect_site_items(site, KEYWORDS, title_filter=TITLE_FILTER)
+            items = collect_site_items(site)
         except Exception as e:
             print(f"[{site}] 검색 중 오류 발생, 이번 회차는 건너뜀: {e!r}")
             continue
