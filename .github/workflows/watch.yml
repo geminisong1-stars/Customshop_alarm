@@ -3,7 +3,12 @@ name: Guitar Watcher
 on:
   schedule:
     - cron: '0 */6 * * *'    # GitHub 자체 cron은 정확도가 낮아 6시간마다 도는 안전망 용도. 실제 10분 간격 실행은 외부 cron(cron-job.org)이 workflow_dispatch를 호출해서 담당
-  workflow_dispatch: {}       # Actions 탭 수동 실행 + 외부 cron 서비스가 API로 호출하는 트리거
+  workflow_dispatch:          # Actions 탭 수동 실행 + 외부 cron 서비스가 API로 호출하는 트리거
+    inputs:
+      test_alert:
+        description: '체크하면 실제 감시 대신 텔레그램 테스트 알림 1건만 보냄'
+        type: boolean
+        default: false
 
 permissions:
   contents: write             # seen.json을 다시 commit/push 하기 위해 필요
@@ -31,6 +36,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEST_ALERT: ${{ inputs.test_alert && '1' || '' }}
         run: python3 main.py
 
       - name: Commit updated seen.json
