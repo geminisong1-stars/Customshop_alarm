@@ -1,11 +1,11 @@
 """사이트별 파싱 함수.
 
-각 사이트는 config.py의 SITE_SEARCH_URLS에 이미 카테고리/신품/가격/정렬
+각 사이트는 config.py의 SITE_SEARCH_URLS에 이미 카테고리/신품여부/가격/정렬
 필터가 적용된 고정 URL을 그대로 요청해서 결과를 파싱한다.
 
 반환 dict 형식:
     {
-        "site":  "musicforce" | "buzzbee" | "digimart",
+        "site":  "musicforce" | "buzzbee" | "digimart" | "themusiczoo" | "musicforce_mbs",
         "id":    "<사이트 내 고유 ID>",      # 새 상품 판별 기준 (제목 아님)
         "title": "<상품 제목>",
         "price": "<가격 문자열>",            # 못 구하면 ""
@@ -151,8 +151,38 @@ def search_digimart(url, title_words=None, polite_delay=1.5):
     return results
 
 
+# ----------------------------------------------------------------------
+# 4) The Music Zoo (Shopify JSON API) — Fender Custom Shop 컬렉션
+# ----------------------------------------------------------------------
+def search_themusiczoo(url, title_words=None):
+    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    r.raise_for_status()
+    data = r.json()
+    results = []
+    for product in data.get("products", []):
+        pid = str(product["id"])
+        title = product.get("title", "")
+        handle = product.get("handle", "")
+        variants = product.get("variants", [])
+        price = ""
+        if variants:
+            raw = variants[0].get("price", "")
+            try:
+                price = f"${float(raw):,.2f}"
+            except (ValueError, TypeError):
+                price = str(raw)
+        full_url = f"https://www.themusiczoo.com/products/{handle}"
+        if title_words and title and not _title_match(title, title_words):
+            continue
+        results.append({"site": "themusiczoo", "id": pid, "title": title,
+                        "price": price, "url": full_url})
+    return results
+
+
 SCRAPERS = {
     "musicforce": search_musicforce,
+    "musicforce_mbs": search_musicforce,
     "buzzbee": search_buzzbee,
     "digimart": search_digimart,
+    "themusiczoo": search_themusiczoo,
 }
