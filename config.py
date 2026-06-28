@@ -35,6 +35,13 @@ SITE_SEARCH_URLS = {
         "https://www.themusiczoo.com/collections/fender-custom-shop/products.json"
         "?sort_by=created-descending&limit=50"
     ),
+
+    # WooCommerce Store API(인증 불필요). category=572 = Masterbuilt 카테고리,
+    # orderby=date&order=desc = 최신순, stock_status=instock = 재고있음.
+    "wildwest": (
+        "https://wildwestguitars.com/wp-json/wc/store/v1/products"
+        "?category=572&orderby=date&order=desc&per_page=50&stock_status=instock"
+    ),
 }
 
 # 제목에 아래 단어가 전부 포함된 경우만 통과시키는 오검색 방지 필터.
@@ -47,6 +54,8 @@ TITLE_FILTER_WORDS = {
     "digimart": ["fender", "custom", "shop"],
     # The Music Zoo는 Fender Custom Shop 전용 컬렉션이라 필터 불필요.
     "themusiczoo": None,
+    # Wild West는 category=572(Masterbuilt) 전용이라 필터 불필요.
+    "wildwest": None,
 }
 
 SEEN_FILE = "seen.json"
