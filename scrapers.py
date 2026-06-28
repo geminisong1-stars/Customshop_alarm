@@ -12,6 +12,7 @@
         "url":   "<상세페이지 절대 URL>",
     }
 """
+import html
 import re
 import time
 import requests
@@ -179,10 +180,46 @@ def search_themusiczoo(url, title_words=None):
     return results
 
 
+# ----------------------------------------------------------------------
+# 5) Wild West Guitars (WooCommerce Store API) — Masterbuilt 카테고리
+# ----------------------------------------------------------------------
+def search_wildwest(url, title_words=None):
+    # WooCommerce Store API(인증 불필요)가 JSON으로 깔끔하게 내려준다.
+    # config의 URL에 category=572(Masterbuilt)&orderby=date&order=desc 등이 들어있다.
+    r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+    r.raise_for_status()
+    data = r.json()
+    results = []
+    for product in data:
+        pid = str(product.get("id"))
+        # 제목에 &#8217; 같은 HTML 엔티티가 섞여 있어 디코딩한다.
+        title = html.unescape(product.get("name", "")).strip()
+
+        prices = product.get("prices", {}) or {}
+        price = ""
+        raw = prices.get("price")
+        if raw not in (None, ""):
+            try:
+                minor = int(prices.get("currency_minor_unit", 2))
+                symbol = prices.get("currency_symbol", "$")
+                price = f"{symbol}{int(raw) / (10 ** minor):,.2f}"
+            except (ValueError, TypeError):
+                price = str(raw)
+
+        full_url = product.get("permalink", "")
+
+        if title_words and title and not _title_match(title, title_words):
+            continue
+        results.append({"site": "wildwest", "id": pid, "title": title,
+                        "price": price, "url": full_url})
+    return results
+
+
 SCRAPERS = {
     "musicforce": search_musicforce,
     "musicforce_mbs": search_musicforce,
     "buzzbee": search_buzzbee,
     "digimart": search_digimart,
     "themusiczoo": search_themusiczoo,
+    "wildwest": search_wildwest,
 }
